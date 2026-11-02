@@ -2,8 +2,6 @@
 
 Two separate FastSpeech 2 text-to-speech models, one for English and one for Telugu, with generated test speech and an analysis of the duration, pitch and energy predictions.
 
-Built as an assignment for an Intern Position at LTRC, IIIT Hyderabad.
-
 **[Read the technical report](Report/Technical_Report.pdf)** for the full method, results and analysis.
 
 ## Results at a glance
