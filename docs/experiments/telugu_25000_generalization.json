@@ -1,0 +1,67 @@
+{
+  "language": "telugu",
+  "step": 25000,
+  "clips_per_split": 300,
+  "splits": {
+    "train": {
+      "model_eval_mode": {
+        "total": 0.7068404483795167,
+        "mel": 0.34285698771476747,
+        "mel_postnet": 0.3427908595403035,
+        "pitch": 0.008845018905897934,
+        "energy": 0.007936551968256633,
+        "duration": 0.004411026698847612
+      },
+      "baselines": {
+        "pitch": {
+          "constant_mse": 1.0705,
+          "per_phone_mse": 1.0222,
+          "within_clip_variance": 0.9156,
+          "target_variance": 1.0705
+        },
+        "energy": {
+          "constant_mse": 1.1041,
+          "per_phone_mse": 0.5467,
+          "within_clip_variance": 1.041,
+          "target_variance": 1.1026
+        },
+        "duration": {
+          "constant_mse": 0.2101,
+          "per_phone_mse": 0.13,
+          "within_clip_variance": 0.2053,
+          "target_variance": 0.2101
+        }
+      }
+    },
+    "val": {
+      "model_eval_mode": {
+        "total": 2.04177095413208,
+        "mel": 0.5802427840232849,
+        "mel_postnet": 0.5800584228833516,
+        "pitch": 0.605058434009552,
+        "energy": 0.21274758179982503,
+        "duration": 0.06366371889909109
+      },
+      "baselines": {
+        "pitch": {
+          "constant_mse": 1.088,
+          "per_phone_mse": 1.0379,
+          "within_clip_variance": 0.9247,
+          "target_variance": 1.0876
+        },
+        "energy": {
+          "constant_mse": 1.111,
+          "per_phone_mse": 0.547,
+          "within_clip_variance": 1.0533,
+          "target_variance": 1.1089
+        },
+        "duration": {
+          "constant_mse": 0.211,
+          "per_phone_mse": 0.1297,
+          "within_clip_variance": 0.2063,
+          "target_variance": 0.211
+        }
+      }
+    }
+  }
+}

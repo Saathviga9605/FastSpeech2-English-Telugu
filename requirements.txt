@@ -1,0 +1,19 @@
+# Installed on top of Colab's PyTorch and NumPy, which are deliberately not pinned here.
+# Tests pass with these versions on Python 3.13 with torch 2.14.0 and numpy 2.2.2 (CPU).
+# Colab runs are recorded in benchmark.json. MFA has its own environment: scripts/run_mfa.sh
+librosa==1.0.0
+pyworld==0.3.5
+tgt==1.5
+g2p-en==2.1.0
+inflect==7.6.0
+unidecode==1.4.0
+scikit-learn>=1.5
+soundfile>=0.12
+pyarrow>=15
+datasets>=3
+huggingface_hub>=0.30
+nltk>=3.9
+matplotlib>=3.8
+pyyaml>=6
+scipy>=1.11
+pytest>=8

@@ -1,0 +1,78 @@
+{
+ "source": "docs/assignment/FastSpeech2_Assignment.pdf, section 3",
+ "note": "`text` is the string synthesized. `pdf_rendered` is transcribed by eye from the rendered page. `pdf_text_layer` is what text extraction returns; it adds spaces inside Telugu words that are not printed. `message_text` is the string in the project owner's message. No field is ever edited by the pipeline.",
+ "english": [
+  {
+   "id": "E1",
+   "text": "The antidisestablishmentarianism movement gained considerable momentum during the parliamentary proceedings.",
+   "pdf_rendered": "The antidisestablishmentarianism movement gained considerable momentum during the parliamentary proceedings.",
+   "pdf_text_layer": "The antidisestablishmentarianism movement gained considerable momentum during the parliamentary proceedings.",
+   "message_text": "The antidisestablishmentarianism movement gained considerable momentum during the parliamentary proceedings."
+  },
+  {
+   "id": "E2a",
+   "text": "The orchestra's conduct during the ceremony was praised by the audience.",
+   "pdf_rendered": "The orchestra's conduct during the ceremony was praised by the audience.",
+   "pdf_text_layer": "The orchestra's conduct during the ceremony was praised by the audience.",
+   "message_text": "The orchestra's conduct during the ceremony was praised by the audience."
+  },
+  {
+   "id": "E2b",
+   "text": "The researchers will conduct an experiment to evaluate the proposed method.",
+   "pdf_rendered": "The researchers will conduct an experiment to evaluate the proposed method.",
+   "pdf_text_layer": "The researchers will conduct an experiment to evaluate the proposed method.",
+   "message_text": "The researchers will conduct an experiment to evaluate the proposed method."
+  },
+  {
+   "id": "E3",
+   "text": "The rhyth  m of the orchestra changed unexpectedly.",
+   "pdf_rendered": "The rhyth  m of the orchestra changed unexpectedly.",
+   "pdf_text_layer": "The rhyth  m of the orchestra changed unexpectedly.",
+   "message_text": "The rhyth m of the orchestra changed unexpectedly."
+  },
+  {
+   "id": "E4",
+   "text": "The meeting will start at 10:45 AM on 12 November 2026, so andaroo should arrive on time.",
+   "pdf_rendered": "The meeting will start at 10:45 AM on 12 November 2026, so andaroo should arrive on time.",
+   "pdf_text_layer": "The meeting will start at 10:45 AM on 12 November 2026, so andaroo should arrive on time.",
+   "message_text": "The meeting will start at 10:45 AM on 12 November 2026, so andaroo should arrive on time."
+  }
+ ],
+ "telugu": [
+  {
+   "id": "T1",
+   "text": "న్యూరోఫార్మకోలాజికల్ పరిశోధనలో నూతన ఔషధాల ప్రభావాన్ని విశ్లేషించారు.",
+   "pdf_rendered": "న్యూరోఫార్మకోలాజికల్ పరిశోధనలో నూతన ఔషధాల ప్రభావాన్ని విశ్లేషించారు.",
+   "pdf_text_layer": "న్యూ రోఫార్మ కోలాజికల్  పరిశోధనలో నూతన ఔషధాల ప్రభావాన్ని  విశ్లేషించారు.",
+   "message_text": "న్యూ రోఫార్మ కోలాజికల్ పరిశోధనలోనూతన ఔషధాల ప్రభావాన్ని విశ్లషే ించారు."
+  },
+  {
+   "id": "T2a",
+   "text": "తాడుపై అతని పట్టు చాలా బలంగా ఉంది.",
+   "pdf_rendered": "తాడుపై అతని పట్టు చాలా బలంగా ఉంది.",
+   "pdf_text_layer": "తాడుపై అతని పట్టు చాలా బలంగా ఉంది.",
+   "message_text": "తాడుపై అతని పట్టుచాలా బలంగా ఉంది."
+  },
+  {
+   "id": "T2b",
+   "text": "ఆమె పట్టు చీరను ధరించి వేడుకకు వచ్చింది.",
+   "pdf_rendered": "ఆమె పట్టు చీరను ధరించి వేడుకకు వచ్చింది.",
+   "pdf_text_layer": "ఆమె పట్టు చీరను ధరించి వేడుకకు వచ్చ ింది .",
+   "message_text": "ఆమె పట్టుచీరను ధరించి వేడుకకు వచ్చ ింది."
+  },
+  {
+   "id": "T3",
+   "text": "పులి అడ  విలో నిశ్శబ్దంగా నడిచింది.",
+   "pdf_rendered": "పులి అడ  విలో నిశ్శబ్దంగా నడిచింది.",
+   "pdf_text_layer": "పులి అడ  విలో నిశ్శ బ్దంగా నడిచింది.",
+   "message_text": "పులి అడ విలో నిశ్శబ్ంద గా నడిచింది."
+  },
+  {
+   "id": "T4",
+   "text": "ఈ సమావేశం 2026 నవంబర్ 12వ తేదీ ఉదయం 10:45 గంటలకు ప్రారంభమవుతుంది, సమయానికి సిద్ధంగా ఉంచండి.",
+   "pdf_rendered": "ఈ సమావేశం 2026 నవంబర్ 12వ తేదీ ఉదయం 10:45 గంటలకు ప్రారంభమవుతుంది, సమయానికి సిద్ధంగా ఉంచండి.",
+   "pdf_text_layer": "ఈ సమావేశం 2026 నవంబర్ 12వ తేదీ ఉదయం 10:45 గంటలకు ప్రారంభమవుతుంది, సమయానికి సిద్ధంగా ఉంచండి.",
+   "message_text": "ఈ సమావేశం 2026 నవంబర్ 12వ తేదీ ఉదయం 10:45 గంటలకు ప్రారంభమవుతుంది, సమయానికి సిద్ంధ గా ఉంచండి."
+  }
+ ]
+}

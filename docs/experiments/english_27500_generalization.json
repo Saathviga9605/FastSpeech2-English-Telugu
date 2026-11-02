@@ -1,0 +1,67 @@
+{
+  "language": "english",
+  "step": 27500,
+  "clips_per_split": 300,
+  "splits": {
+    "train": {
+      "model_eval_mode": {
+        "total": 1.0087580982844035,
+        "mel": 0.47852487723032633,
+        "mel_postnet": 0.47837085763613385,
+        "pitch": 0.02285154218475024,
+        "energy": 0.01714926665027936,
+        "duration": 0.011861530691385269
+      },
+      "baselines": {
+        "pitch": {
+          "constant_mse": 1.1077,
+          "per_phone_mse": 1.1017,
+          "within_clip_variance": 0.3461,
+          "target_variance": 1.1069
+        },
+        "energy": {
+          "constant_mse": 1.0457,
+          "per_phone_mse": 0.5775,
+          "within_clip_variance": 0.8917,
+          "target_variance": 1.0452
+        },
+        "duration": {
+          "constant_mse": 0.3055,
+          "per_phone_mse": 0.2577,
+          "within_clip_variance": 0.2829,
+          "target_variance": 0.3055
+        }
+      }
+    },
+    "val": {
+      "model_eval_mode": {
+        "total": 3.7081986967722576,
+        "mel": 0.8726656556129455,
+        "mel_postnet": 0.8723681672414144,
+        "pitch": 1.151219868659973,
+        "energy": 0.5393508116404215,
+        "duration": 0.2725941387812297
+      },
+      "baselines": {
+        "pitch": {
+          "constant_mse": 1.0794,
+          "per_phone_mse": 1.076,
+          "within_clip_variance": 0.3178,
+          "target_variance": 1.0793
+        },
+        "energy": {
+          "constant_mse": 1.0728,
+          "per_phone_mse": 0.6069,
+          "within_clip_variance": 0.9134,
+          "target_variance": 1.0714
+        },
+        "duration": {
+          "constant_mse": 0.3192,
+          "per_phone_mse": 0.2674,
+          "within_clip_variance": 0.2952,
+          "target_variance": 0.3192
+        }
+      }
+    }
+  }
+}

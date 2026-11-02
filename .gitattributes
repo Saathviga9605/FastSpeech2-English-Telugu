@@ -1,0 +1,9 @@
+# Final checkpoints are stored with Git LFS.
+# See docs/implementation/artifact_tracking.md
+English/checkpoints/** filter=lfs diff=lfs merge=lfs -text
+Telugu/checkpoints/** filter=lfs diff=lfs merge=lfs -text
+English/checkpoints/.gitkeep !filter !diff !merge text
+Telugu/checkpoints/.gitkeep !filter !diff !merge text
+*.pdf binary
+# Colab runs these on Linux, so they must keep LF endings in any archive.
+*.sh text eol=lf

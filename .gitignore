@@ -1,0 +1,76 @@
+# Anchored patterns (leading /) are deliberate: src/data/ must stay tracked
+# while /data/raw/ is not. Deliverable policy: docs/implementation/artifact_tracking.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.conda/
+
+# IDE and local tool configuration
+.vscode/
+.idea/
+.claude/settings.local.json
+*.swp
+Thumbs.db
+.DS_Store
+
+# Credentials and environment variables
+.env
+.env.*
+!.env.example
+.huggingface/
+.cache/
+*.token
+hf_token*
+credentials.json
+
+# Upstream clone: keeps its own Git history, pinned in docs/implementation/upstream_provenance.md
+/vendor/FastSpeech2/
+
+# Datasets and derived data (.gitkeep files stay tracked; data/manifests/ is tracked)
+/data/raw/**
+!/data/raw/**/
+!/data/raw/**/.gitkeep
+/data/interim/**
+!/data/interim/**/
+!/data/interim/**/.gitkeep
+/data/processed/**
+!/data/processed/**/
+!/data/processed/**/.gitkeep
+
+# Temporary audio and alignment intermediates
+tmp_audio/
+*.tmp.wav
+/alignment_tmp/
+/mfa_tmp/
+
+# Training logs and intermediate checkpoints
+# Only final checkpoints go in English/checkpoints/ and Telugu/checkpoints/.
+/logs/**
+!/logs/.gitkeep
+/output/
+events.out.tfevents.*
+
+# LaTeX build files (the report sources and PDF stay tracked)
+/Report/*.aux
+/Report/*.log
+/Report/*.out
+/Report/*.toc
+/Report/*.synctex.gz
+
+# NOT ignored on purpose (required deliverables):
+#   English/checkpoints/  Telugu/checkpoints/  (Git LFS, see .gitattributes)
+#   Results/  Report/
+
+/data/manifests/*.jsonl
+
+# Assignment PDF stays local until publishing it is confirmed
+/docs/assignment/*.pdf

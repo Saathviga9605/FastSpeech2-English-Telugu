@@ -1,0 +1,92 @@
+preprocess:
+  language: "english"
+  dataset: "Svarah"
+  hf_repo: "ai4bharat/Svarah"
+  path:
+    parquet_dir: "${FS2_RAW_ENGLISH}"
+    interim_path: "${FS2_DATA_ROOT}/interim/english"
+    manifest_dir: "${FS2_DATA_ROOT}/manifests"
+    lexicon_path: "${FS2_REPO_ROOT}/English/librispeech-lexicon.txt"
+    preprocessed_path: "${FS2_DATA_ROOT}/processed/english"
+  selection:
+    train_hours: 5.0
+    val_hours: 1.0
+    min_seconds: 1.0
+    max_seconds: 11.5  # max_seq_len 1000 frames is 11.6 s
+    seed: 1234
+    speakers: null  # null keeps all speakers
+    disjoint_text: true  # no transcript appears in both training and validation
+  columns:
+    audio: "audio_filepath"
+    text: "text"
+    gender: "gender"
+  preprocessing:
+    audio:
+      sampling_rate: 22050
+      max_wav_value: 32768.0
+    stft:
+      filter_length: 1024
+      hop_length: 256
+      win_length: 1024
+    mel:
+      n_mel_channels: 80
+      mel_fmin: 0
+      mel_fmax: 8000
+    pitch:
+      feature: "phoneme_level"
+      normalization: true
+    energy:
+      feature: "phoneme_level"
+      normalization: true
+
+model:
+  # Upstream LJSpeech architecture. Deviations: docs/architecture/paper_vs_implementation.md
+  transformer:
+    encoder_layer: 4
+    encoder_head: 2
+    encoder_hidden: 256
+    decoder_layer: 6
+    decoder_head: 2
+    decoder_hidden: 256
+    conv_filter_size: 1024
+    conv_kernel_size: [9, 1]
+    encoder_dropout: 0.2
+    decoder_dropout: 0.2
+  variance_predictor:
+    filter_size: 256
+    kernel_size: 3
+    dropout: 0.5
+  variance_embedding:
+    pitch_quantization: "linear"
+    energy_quantization: "linear"
+    n_bins: 256
+  use_postnet: true
+  multi_speaker: false  # enable once Svarah speaker identity is confirmed
+  max_seq_len: 1000
+  vocoder:
+    model: "HiFi-GAN"
+    speaker: "universal"
+    zip_path: "${FS2_REPO_ROOT}/src/models/hifigan/generator_universal.pth.tar.zip"
+    cache_dir: "${FS2_EXP_ROOT}/vocoder"
+
+train:
+  path:
+    ckpt_path: "${FS2_CKPT_ROOT}/english"
+    log_path: "${FS2_EXP_ROOT}/english/log"
+  seed: 1234
+  optimizer:
+    batch_size: 16
+    betas: [0.9, 0.98]
+    eps: 0.000000001
+    weight_decay: 0.0
+    grad_clip_thresh: 1.0
+    grad_acc_step: 1
+    warm_up_step: 4000
+    anneal_steps: [30000, 40000, 45000]  # upstream's ratios scaled to a 50k run
+    anneal_rate: 0.3
+  step:
+    total_step: 50000
+    log_step: 100
+    val_step: 1000
+    save_step: 2500
+    keep_last: 3

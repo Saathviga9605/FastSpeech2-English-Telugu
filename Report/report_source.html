@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>FastSpeech 2 for English and Telugu</title>
+<style>
+@page { size: A4; margin: 20mm 18mm; }
+body { font: 11.5pt/1.4 "Times New Roman", "Nirmala UI", serif; color: #000; text-align: justify; }
+h1 { font-size: 18pt; margin: 0 0 4pt; text-align: center; } h2, h3 { break-after: avoid; } tr, figure { break-inside: avoid; } h2 { font-size: 13.5pt; margin: 18pt 0 5pt; } h3 { font-size: 11pt; margin: 11pt 0 3pt; }
+table { border-collapse: collapse; width: 100%; margin: 6pt 0 9pt; font-size: 10.5pt; }
+th, td { border: 1px solid #999; padding: 3pt 5pt; text-align: left; vertical-align: top; } th { background: #eee; }
+code, pre { font: 10.5pt "Times New Roman", "Nirmala UI", serif; } pre { background: #f4f4f4; padding: 6pt; white-space: pre-wrap; text-align: left; }
+.pending { border: 2px solid #b00; background: #fdeeee; padding: 6pt 8pt; margin: 7pt 0; }
+.pending::before { content: "NOT YET AVAILABLE: "; font-weight: bold; color: #b00; }
+img { max-width: 100%; }
+</style></head><body>
+<h1>FastSpeech 2 for English and Telugu: Technical Report</h1>
+<p style="text-align:center">{{STATUS_LINE}}</p>
+
+<h2>1. Implementation approach</h2>
+<p>I started from the ming024 FastSpeech2 implementation (commit <code>d4e79eb</code>) and ported it into <code>src/</code>, leaving the upstream clone unmodified. I configured and trained two separate models, each with its own <code>config.yaml</code> and phone vocabulary.</p>
+<h3>Components used from the reference implementation</h3>
+<ul>
+<li>Encoder with 4 layers and decoder with 6 layers, 2 attention heads, 256 hidden units, convolutional feed-forward blocks with kernels 9 and 1, and dropout 0.2.</li>
+<li>Variance adaptor with duration, pitch and energy predictors (256 filters, kernel 3, dropout 0.5) and 256 linearly quantized pitch and energy embeddings.</li>
+<li>F0 pitch and energy averaged per phoneme, Montreal Forced Aligner durations, a Tacotron-2-style Post-Net, and the universal HiFi-GAN vocoder.</li>
+</ul>
+<h3>Differences from the FastSpeech 2 paper</h3>
+<p>I inherited these from upstream: the later paper versions use continuous wavelet pitch spectrograms rather than F0, the Post-Net is not part of the paper's model, and pitch and energy are predicted per phoneme rather than per frame. The 6-layer decoder is upstream's setting. The Post-Net can be switched off in the config.</p>
+<h3>Modifications for both languages</h3>
+<table><tr><th>Change</th><th>Reason</th></tr>
+<tr><td>Energy control uses its own parameter</td><td>Upstream applied the pitch control to energy</td></tr>
+<tr><td>Unknown symbols raise an error</td><td>Upstream dropped them silently</td></tr>
+<tr><td>Training raises an error on clips over <code>max_seq_len</code></td><td>Upstream truncated silently</td></tr>
+<tr><td>Decoder protected from all-zero predicted durations</td><td>Upstream crashed; reproduced in 3 of 12 untrained models</td></tr>
+<tr><td>Outlier filter bounds made inclusive</td><td>Upstream's strict bounds returned nothing when at least half of a clip's values were identical; this crashed English extraction</td></tr>
+<tr><td>Statistics from the training split only</td><td>Prevents validation leakage</td></tr>
+<tr><td>Atomic, resumable checkpoints with RNG state</td><td>Colab disconnects</td></tr>
+<tr><td>Per-language vocabulary; compatibility fixes for current PyTorch and librosa</td><td>Separate models on a current software stack</td></tr></table>
+<h3>English modifications</h3>
+<ul>
+<li>ARPAbet phones from the LibriSpeech lexicon, with g2p_en for unknown words.</li>
+<li>Homographs resolved by part of speech at inference, needed for E2 (<code>conduct</code>).</li>
+<li>Times, dates and numbers expanded to words at inference, with every transformation logged.</li>
+<li>Forced alignment uses a minimum of three states per phone (section 2.3).</li>
+</ul>
+<h3>Telugu modifications</h3>
+<ul>
+<li>A new rule-based grapheme-to-phoneme frontend (<code>src/text/telugu.py</code>): inherent vowels, vowel signs, virama, and homorganic nasal for anusvara. I designed these rules and checked them with tests, but not against a reference lexicon.</li>
+<li>Telugu number, ordinal and time expansion for T4.</li>
+<li>ASCII word keys for MFA, so its tokenizer cannot alter Telugu text. Training text with characters that have no defined pronunciation is rejected rather than cleaned silently.</li>
+</ul>
+
+<h2>2. Datasets and preprocessing</h2>
+<h3>2.1 Selection and subsampling</h3>
+<table><tr><th></th><th>English: Svarah</th><th>Telugu: IndicTTS Telugu</th></tr>
+<tr><td>Full dataset</td><td>6,656 clips, 9.614 h, 16 kHz</td><td>8,576 clips, 36.71 h; male label 48 kHz, female label 16 kHz</td></tr>
+<tr><td>Usable, 1 to 11.5 s</td><td>4,841 clips, 6.85 h</td><td>Male label 6.58 h; female label 2.09 h</td></tr>
+<tr><td>Strategy</td><td>Seeded shuffle (1234) of all usable clips; validation filled first, then training; no transcript on both sides</td><td>Same seeded method, male label only, as the only label with 5 + 1 h under the length limit</td></tr>
+<tr><td>Selected train</td><td>3,533 clips, 5.000 h</td><td>2,564 clips, 5.00 h</td></tr>
+<tr><td>Selected validation</td><td>698 clips, 1.000 h</td><td>514 clips, 1.00 h</td></tr>
+<tr><td>Excluded by rule</td><td>69 transcripts with undefined symbols; clips outside the length limit</td><td>Clips outside the length limit; other label</td></tr></table>
+<p>The 11.5 s limit keeps clips within <code>max_seq_len</code> of 1000 mel frames.</p>
+<h3>2.2 Preprocessing</h3>
+<p>Audio is converted to mono 22,050 Hz 16-bit PCM and peak-normalized. Mel spectrograms use FFT 1024, hop 256, window 1024, 80 bands and 0 to 8000 Hz. F0 uses WORLD DIO and StoneMask, with unvoiced frames interpolated; F0 and energy are averaged per phone and z-normalized with training statistics. Edge silence is trimmed from each clip using the alignment, and internal silence is kept.</p>
+<h3>2.3 Alignment</h3>
+<p>I trained an MFA 3.4.3 acoustic model on each selected corpus, on CPU, in single-speaker mode.</p>
+<table><tr><th></th><th>English</th><th>Telugu</th></tr>
+<tr><td>Train aligned</td><td>3,501 of 3,533 (99.09%)</td><td>2,524 of 2,564 (98.44%)</td></tr>
+<tr><td>Validation aligned</td><td>689 of 698 (98.71%)</td><td>507 of 514 (98.64%)</td></tr>
+<tr><td>Train with features</td><td>3,499 clips</td><td>2,524 clips</td></tr>
+<tr><td>Validation with features</td><td>689 clips</td><td>507 clips</td></tr>
+<tr><td>Hours, edge silence trimmed (train / val)</td><td>4.590 / 0.908</td><td>4.104 / 0.821</td></tr>
+<tr><td>Vowel minus silence, alignment vs control</td><td>24.6 vs 4.4 dB</td><td>41.4 vs 10.9 dB</td></tr>
+<tr><td>Fricative minus vowel high-band, alignment vs control</td><td>0.389 vs -0.011</td><td>0.593 vs -0.017</td></tr>
+<tr><td>Vowel minus stop voicing, alignment vs control</td><td>0.442 vs -0.013</td><td>0.587 vs -0.011</td></tr></table>
+<p>The controls stretch another clip's alignment over the audio. These are plausibility contrasts, not boundary accuracy, because no hand-labelled reference exists. Training audio is therefore about 5 h as selected and less after failed alignments and silence trimming. No clip appears in both splits.</p>
+<p><b>A negative result.</b> The first English alignment passed these contrasts and still had a serious defect: MFA's default topology lets a phone last one 10 ms frame, and <code>TH</code> (99.9%), <code>G</code> (98.1%) and <code>R</code> (85.3%) collapsed to that length. Requiring three states raised their medians to 80, 70 and 50 ms. I do not know the cause of the collapse, and a minimum duration does not prove the boundaries are right.</p>
+
+<h2>3. Training configuration</h2>
+<table><tr><th>Setting</th><th>Value, both languages</th></tr>
+<tr><td>Batch size</td><td>16</td></tr><tr><td>Optimizer</td><td>Adam, betas 0.9 and 0.98, eps 1e-9, Noam schedule with 4,000 warm-up steps</td></tr>
+<tr><td>Learning-rate anneal</td><td>Rate 0.3 at 30k, 40k and 45k steps (upstream's ratios scaled for 50k; not tuned)</td></tr>
+<tr><td>Gradient clip</td><td>1.0</td></tr><tr><td>Planned steps</td><td>50,000</td></tr><tr><td>Validation, checkpoints</td><td>Every 1,000 and 2,500 steps</td></tr><tr><td>Seed</td><td>1234</td></tr></table>
+{{TRAINING_RECORD}}
+
+<h2>4. Loss curves</h2>
+{{LOSS_PLOTS}}
+<h3>English</h3>
+<p><b>Training stopped early.</b> The Colab GPU limit ended the run at about step 28,400 of my planned 50,000. I did not resume it, because validation had stopped improving and I needed the remaining GPU time for Telugu. The model I am submitting is the last saved checkpoint, step 27,500, so the logs extend slightly beyond it. The learning-rate anneals at 30k and later were never reached.</p>
+<p><b>Convergence and overfitting.</b> Training loss fell throughout, reaching a total near 1.0 and mel near 0.46 to 0.50. Validation did not follow: mel reached its lowest value, 0.847, at step 7,000 and was 0.862 at step 28,000, while validation total stayed between 3.63 and 4.06 (the 4.06 spike at step 4,000 did not recur). This is clear overfitting from early in training. Checkpoints near step 7,000 were not kept (<code>keep_last: 3</code>), so I cannot submit the best validation point.</p>
+<table><tr><th>Step 27,500, eval mode, 300 clips per split</th><th>Pitch</th><th>Energy</th><th>Log duration</th><th>Mel</th></tr>
+<tr><td>Model on training clips</td><td>0.023</td><td>0.017</td><td>0.012</td><td>0.479</td></tr>
+<tr><td>Model on validation clips</td><td>1.151</td><td>0.539</td><td>0.273</td><td>0.873</td></tr>
+<tr><td>Validation baseline: constant value</td><td>1.079</td><td>1.073</td><td>0.319</td><td>not measured</td></tr>
+<tr><td>Validation baseline: each phone's training mean</td><td>1.076</td><td>0.607</td><td>0.267</td><td>not measured</td></tr></table>
+<p>Scoring both splits in the same mode rules out dropout as the explanation for the gap. On validation clips, the pitch predictor is worse than a constant, and the duration predictor is no better than a per-phone average; energy improves only slightly on it. The predictors have memorized training clips rather than learned prosody that generalizes. About 70% of validation pitch variance lies between clips (1.079 total, 0.318 within clips). That is what unlabelled speakers would produce, because text cannot reveal who is speaking, but I had no speaker identities with which to test this.</p>
+
+<h3>Telugu</h3>
+<p><b>Training stopped early.</b> The run ended at about step 25,200 of my planned 50,000 when the Colab GPU limit was reached, and I did not resume it. The model I am submitting is the last saved checkpoint, step 25,000, which is 2,500 steps fewer than English. Learning-rate anneals were not reached.</p>
+<p><b>Convergence and overfitting.</b> Training mel reached about 0.34 to 0.37. Validation mel fell to 0.576 at step 12,000 and was 0.582 at step 25,000, and validation total was lowest at 2.025 at step 11,000 and 2.047 at step 25,000. Validation stopped improving about halfway through the run and has drifted only slightly, with no large spikes after the first steps. The training and validation gap shows overfitting here too.</p>
+<table><tr><th>Step 25,000, eval mode, 300 clips per split</th><th>Pitch</th><th>Energy</th><th>Log duration</th><th>Mel</th></tr>
+<tr><td>Model on training clips</td><td>0.009</td><td>0.008</td><td>0.004</td><td>0.343</td></tr>
+<tr><td>Model on validation clips</td><td>0.605</td><td>0.213</td><td>0.064</td><td>0.580</td></tr>
+<tr><td>Validation baseline: constant value</td><td>1.088</td><td>1.111</td><td>0.211</td><td>not measured</td></tr>
+<tr><td>Validation baseline: each phone's training mean</td><td>1.038</td><td>0.547</td><td>0.130</td><td>not measured</td></tr></table>
+<p>Unlike English, all three Telugu predictors beat both baselines on unseen clips, by about 42% for pitch, 61% for energy and 51% for duration against the per-phone mean. So the model memorizes training clips but has also learned something that generalizes.</p>
+
+<h2>5. Generated speech</h2>
+<p>I synthesized the sentences exactly as provided. The frontend's phone sequence differs from the text only where logged. I listened to all ten clips myself; these are informal notes from one listener, not a controlled test.</p>
+<table><tr><th>ID</th><th>Sentence</th><th>Frontend behaviour</th><th>What I heard</th></tr>
+<tr><td>E1</td><td>{{E1}}</td><td><code>antidisestablishmentarianism</code> is not in the lexicon, so g2p_en supplies it.</td><td>The long word is understandable.</td></tr>
+<tr><td>E2a</td><td>{{E2a}}</td><td><code>conduct</code> read as noun, <code>K AA1 N D AH0 K T</code>.</td><td>I heard it as different from E2b.</td></tr>
+<tr><td>E2b</td><td>{{E2b}}</td><td><code>conduct</code> read as verb, <code>K AA0 N D AH1 K T</code>.</td><td>I heard it as different from E2a.</td></tr>
+<tr><td>E3</td><td>{{E3}}</td><td>The printed break is preserved, so it reads as <code>rhyth</code> + <code>m</code>: <code>R AY1 DH EH1 M</code>, not the word "rhythm".</td><td>It does not say "rhythm" as a whole; it comes out as rhyth + m, as the frontend predicts.</td></tr>
+<tr><td>E4</td><td>{{E4}}</td><td>Time, date and numbers expanded; <code>andaroo</code> from g2p_en.</td><td>The numbers are right, but it says "am" instead of "AM": the frontend reads <code>a m</code> as <code>AH0 EH1 M</code>, not the letter names.</td></tr>
+<tr><td>T1</td><td>{{T1}}</td><td>Transliterated technical word handled by rules, with no changes logged.</td><td>It came out perfectly, including the <code>ny</code> word.</td></tr>
+<tr><td>T2a</td><td>{{T2a}}</td><td>Same <code>పట్టు</code> phones as T2b: <code>p a tt tt u</code>. Text gives no difference.</td><td>Somewhat different from T2b, but I am not certain.</td></tr>
+<tr><td>T2b</td><td>{{T2b}}</td><td>Same <code>పట్టు</code> phones as T2a.</td><td>Somewhat different from T2a, but I am not certain. The <code>ny</code> word sounds right.</td></tr>
+<tr><td>T3</td><td>{{T3}}</td><td>The printed break in <code>అడ  విలో</code> becomes a word break with no added pause.</td><td>It says <code>అడవిలో</code> as a whole, with no audible break.</td></tr>
+<tr><td>T4</td><td>{{T4}}</td><td>Year, ordinal and time expanded to Telugu words, all logged.</td><td>The year, ordinal and time were perfect. The <code>ny</code> word sounds right.</td></tr></table>
+
+<h2>6. Variance adaptor analysis</h2>
+<p>The values below come from <code>Results/&lt;language&gt;/synthesis_report.json</code>, and the plots follow the discussion. Pitch and energy are per phone. F0 was interpolated across unvoiced frames during training, so values on unvoiced phones such as <code>K</code> or <code>S</code> are not real voicing and should be read with care. Given the English validation results in section 4, I read the English contours as model behaviour rather than as evidence of correct prosody.</p>
+<h3>Patterns across all sentences</h3>
+<ul>
+<li><b>Energy:</b> in all ten sentences the maximum falls on a vowel. Minima fall on stops, affricates and fricatives, with one exception: the final vowel of T1. This is the expected broad pattern and fits energy being the only English predictor that beats the per-phone baseline.</li>
+<li><b>Duration:</b> no phone is predicted at zero length. English phone means are 68 to 77 ms and Telugu 58 to 67 ms. In Telugu, word-initial vowels are often the longest phones.</li>
+<li><b>Pitch:</b> All Telugu sentences end in a clear fall, reaching about 103 to 117 Hz. English sentences fall less consistently, and some contain large jumps inside a sentence.</li>
+</ul>
+<h3>English (step 27,500)</h3>
+<table><tr><th>ID</th><th>Duration</th><th>Pitch (F0)</th><th>Energy</th></tr>
+<tr><td>E1</td><td>85 phones in 5.96 s. The long word has no unusually stretched phone apart from its first vowel <code>AE2</code> at 174 ms. <code>EY1</code> in "gained" is 162 ms and the <code>S</code> in "proceedings" 139 ms.</td><td>Mean 214 Hz. Peaks at 297 Hz on <code>AH0</code> inside "antidis-", and stays mostly above 205 Hz through the long word before falling to about 180 Hz in "proceedings", a plausible overall declination.</td><td>Maximum 137 on the first <code>AH0</code>. Stops and fricatives in the long word drop to between 15 and 41, against about 100 on its vowels, showing clear syllable structure. Minimum 9 on <code>K</code>.</td></tr>
+<tr><td>E2a</td><td>Mean 76 ms. The final <code>S</code> is the longest at 197 ms and <code>Z</code> in "orchestra's" is 162 ms, which may reflect lengthening at phrase and sentence ends.</td><td>Mean 165 Hz, the lowest in English. <code>K</code> of "conduct" spikes to 219 Hz between 153 and 135 Hz, on an unvoiced phone. The stressed <code>AA1</code> is low at 135 Hz. Falls to about 133 to 147 Hz in "audience".</td><td>Maximum 110 on <code>AH0</code> in "conduct". Minimum 5 on that word's <code>K</code>.</td></tr>
+<tr><td>E2b</td><td>Mean 68 ms. <code>Z</code> at the end of "researchers" is 139 ms; <code>CH</code> is 116 ms. In "conduct" the stressed <code>AH1</code> is only 46 ms.</td><td>Mean 168 Hz with the widest range, 100 to 257 Hz. F0 is 199 to 257 Hz over "the researchers" and drops to 129 Hz at "will", which is not plausible phrase intonation. The stressed <code>AH1</code> is 146 Hz beside 145 and 143 Hz, so no stress rise is evident. It ends low, reaching 100 Hz in "method".</td><td>Maximum 150 on <code>AH0</code> in the first word, a weak syllable, which is not what stress would suggest. Minimum 6 on <code>P</code>.</td></tr>
+<tr><td>E3</td><td>"Rhyth m" is <code>R AY1 DH EH1 M</code> at 46, 128, 93, 46 and 81 ms, with no pause phone at the break, so it is one continuous unit that does not resemble "rhythm". Final <code>IY0</code> is the longest at 174 ms.</td><td>Mean 211 Hz. <code>DH</code> dips to 190 Hz and <code>EH1</code> jumps to 239 Hz inside this unit. Falls gently to about 182 Hz at the end.</td><td>Maximum 123 on the invented <code>EH1</code>, which gives the spurious syllable prominence and fits what I heard. Final <code>IY0</code> is only 24 despite its length. Minimum 6 on <code>P</code>.</td></tr>
+<tr><td>E4</td><td>Mean 77 ms. The frontend's hyphenated numbers add <code>sp</code> pauses inside "forty-five" (58 ms) and "twenty-six" (104 ms), as well as 128 ms at the comma. "a m" is <code>AH0 EH1 M</code>, which explains the "am" I heard. Final <code>AY1</code> and <code>M</code> are 151 ms each.</td><td>Mean 192 Hz. Reaches 245 to 268 Hz on "will start", then mostly 175 to 210 Hz through the numbers. "andaroo" falls from 180 to 157 Hz. It ends with 133 Hz on "on" and then rises to 187 Hz on final <code>M</code>, so there is no clean final fall.</td><td>Maximum 144 on <code>EH1</code> in "twelve". Minimum 9 on <code>S</code>. Vowels in the number words stay strong, which may help explain why they are clear.</td></tr></table>
+<h3>Telugu (step 25,000)</h3>
+<table><tr><th>ID</th><th>Duration</th><th>Pitch (F0)</th><th>Energy</th></tr>
+<tr><td>T1</td><td>66 phones in 4.44 s. Longest are <code>ph</code> and <code>c</code> at 128 ms. Word-initial <code>au</code> in <code>ఔషధాల</code> is 116 ms. <code>ny</code> is 12 ms, one frame, yet the word sounded right to me.</td><td>Mean 190 Hz. The clearest declination of all: 141 Hz at the start, rising to 270 Hz on <code>oo</code> in the first word, then falling steadily to 115 Hz at the end.</td><td>Maximum 142 on <code>aa</code>. Falls toward the end, reaching a minimum of 3 on the final <code>u</code>.</td></tr>
+<tr><td>T2a</td><td>Mean 63 ms. <code>ai</code> is 116 ms. In <code>పట్టు</code>, the geminate <code>tt tt</code> totals 104 ms and the word is <code>p a tt tt u</code> at 81, 46, 58, 46 and 46 ms.</td><td>Mean 185 Hz. Rises to 260 Hz on the first word, and <code>పట్టు</code> stays at 170 to 211 Hz. Ends with a fall of 131, 113 and 114 Hz on <code>n d i</code>.</td><td>Maximum 148 on the first <code>aa</code>. The geminate closure is low at 14 and 7. Final <code>i</code> is 15.</td></tr>
+<tr><td>T2b</td><td>Mean 63 ms. Initial <code>aa</code> is the longest at 139 ms. The same word is 104, 58, 58, 46 and 23 ms, with a much shorter final vowel than in T2a's 46 ms. <code>ny</code> is 12 ms.</td><td>Mean 189 Hz. <code>పట్టు</code> rises across 142 to 222 Hz and continues to 248 Hz on <code>చీరను</code>, a different shape from T2a. Ends at 130, 113 and 113 Hz.</td><td>Maximum 106 on <code>a</code>. The geminate closures are low, at 13 and 9 for <code>tt</code> and 7 and 24 for <code>c c</code>.</td></tr>
+<tr><td>T3</td><td>Mean 63 ms. <code>అడ  విలో</code> is 139, 46, 58, 35, 35, 70 and 104 ms, with no <code>sp</code> at the printed break, which fits my hearing it as one word. The geminate <code>sh sh</code> is long at 221 ms.</td><td>Mean 189 Hz. No reset at the break: 218, 209 and 226 Hz run across it, up to 255 Hz on <code>oo</code>, then a fall to 117 Hz at the end.</td><td>Maximum 124 on <code>i</code> in the first word. Energy stays high across the break (119, 45, 76). Minimum 9 on <code>c</code>.</td></tr>
+<tr><td>T4</td><td>120 phones in 7.01 s, with the shortest mean at 58 ms. Word-initial vowels are longest: <code>ii</code> and <code>aa</code> 151 ms, <code>u</code> 128 ms and <code>ai</code> 128 ms. The only pause is <code>sp</code> at 70 ms at the comma, so number words are not set apart by pauses. <code>ny</code> is 12 ms.</td><td>Mean 183 Hz. Mostly level between 160 and 215 Hz through the year, ordinal and time, with one peak of 239 Hz on <code>u</code> of <code>ఆరు</code>. Ends with a fall to 103 Hz, the lowest in Telugu.</td><td>Maximum 131 on <code>ee</code> in <code>వేల</code>. Minimum 7 on <code>k</code>. Final <code>i</code> is 9.</td></tr></table>
+<p><b>E2 and T2 contrasts.</b> I heard the two readings of "conduct" as different, although the stress contrast is not evident in predicted F0. These are different sentences, so the difference may come from other factors, such as the different vowels the stress symbols select. For <code>పట్టు</code>, predictions do differ in T2a and T2b, but only context can separate them, and these values cannot establish whether a difference in meaning is conveyed.</p>
+{{VARIANCE_PLOTS}}
+
+<h2>7. Comparison, limitations and improvements</h2>
+<table><tr><th>Measure</th><th>English</th><th>Telugu</th></tr>
+<tr><td>Submitted step (planned 50,000)</td><td>27,500</td><td>25,000</td></tr>
+<tr><td>Validation mel, submitted checkpoint</td><td>0.873</td><td>0.580</td></tr>
+<tr><td>Best logged validation mel</td><td>0.847 (step 7,000)</td><td>0.576 (step 12,000)</td></tr>
+<tr><td>Pitch vs per-phone baseline, validation</td><td>1.151 vs 1.076 (worse)</td><td>0.605 vs 1.038 (better)</td></tr>
+<tr><td>Energy vs per-phone baseline, validation</td><td>0.539 vs 0.607 (better)</td><td>0.213 vs 0.547 (better)</td></tr>
+<tr><td>Log duration vs per-phone baseline, validation</td><td>0.273 vs 0.267 (no better)</td><td>0.064 vs 0.130 (better)</td></tr>
+<tr><td>Share of validation pitch variance within clips</td><td>about 29%</td><td>about 85%</td></tr></table>
+<p>Telugu generalizes clearly better on these measures. This does not show that the model handles Telugu better than English as a language, because the datasets differ in the way that matters most: English is an unlabelled mix of voices and Telugu trains under one label. Text cannot predict which speaker a clip came from, which would limit English regardless of the model. The step counts also differ, though validation had flattened well before either stopped, so this is unlikely to explain the gap. I did not test either hypothesis with a controlled experiment.</p>
+<p><b>What I heard.</b> T1 and T4 came out very well. The two English problems I heard, in E3 and E4, trace to how the frontend read the text rather than to the acoustic model. The English long word in E1 and the numbers in E4 were understood despite the poor validation scores, so those scores do not by themselves show that the speech is unintelligible. Overall, some sentences sounded a bit robotic, and in some the last word was cut off. I did not record which clips these were, rate quality clip by clip, or compare the two voices in a controlled way. The waveforms do not end at full level: the last 50 ms of each clip is at 3% to 18% of its overall RMS level. So the cut-off is not a hard truncation of loud audio. One possible cause, which I did not test, is that I trimmed edge silence from the training clips, so the models learned to end abruptly, with low predicted energy on some final phones (3 in T1, 8 in T2b). The robotic quality may come partly from the universal HiFi-GAN vocoder not being fine-tuned, though I did not test this either.</p>
+<p><b>Code version.</b> The repository's commit history was consolidated before publication, so the commit named in section 8 is the published code, not a commit recorded during the training runs.</p>
+<h3>Limitations known before training</h3>
+<ul>
+<li><b>English speakers:</b> Svarah as loaded has no speaker column. Filename fields are not speaker IDs, and the 115 metadata profiles were not used as identities. All clips train as one group without speaker embeddings, so an averaged voice is expected. Telugu uses one label, which is not the same condition, and this limits any comparison.</li>
+<li><b>Telugu speaker:</b> median F0 under the male label drifts from about 160 to 209 Hz across rows, which F0 alone cannot explain as one speaker or several.</li>
+<li><b>English lexicon:</b> preparation keeps the first listed pronunciation (<code>good</code> as <code>G IH0 D</code>); 1,018 of 6,571 corpus words have several. Abbreviations can be aligned as words, for example <code>CE</code> as <code>S</code>.</li>
+<li><b>Telugu alignment:</b> <code>ny</code> stays at one frame in 87.7% of 1,458 cases, and 7 kept clips contain Latin letters. The English topology fix was not applied to Telugu. The model predicts one frame for <code>ny</code> in T1, T2b and T4, though I heard no problem in those words.</li>
+<li><b>Failed alignments:</b> 41 English and 47 Telugu clips have no alignment, for unknown reasons.</li>
+<li><b>English frontend:</b> <code>AM</code> becomes <code>a m</code> and is read as <code>AH0 EH1 M</code>, and hyphens in number words add pauses. Both are visible in E4.</li>
+<li><b>Vocoder:</b> universal HiFi-GAN is not fine-tuned to either dataset. On real mels, log-mel L1 was 0.43 to 0.53, which does not establish perceived quality.</li>
+<li><b>Homographs:</b> Telugu <code>పట్టు</code> has two meanings with the same text-derived phones, so T2a and T2b can differ only through context.</li>
+</ul>
+<h3>Possible improvements</h3>
+<ul><li>Keep a short silence at clip ends during training, to test whether this fixes the cut-off last words.</li><li>Read abbreviations such as AM by letter names, and stop hyphens adding pauses in number words.</li><li>Keep the best validation checkpoint as well as the latest. It was lost here, and both models stopped improving long before the end. Regularization or early stopping should also be tested.</li><li>Keep multiple English pronunciations during alignment, and apply the topology change to Telugu.</li><li>Use verified speaker IDs with speaker embeddings for Svarah.</li><li>Fine-tune HiFi-GAN on each dataset.</li><li>Check the Telugu rules against a reference lexicon.</li></ul>
+
+<h2>8. Reproducibility</h2>
+<p>Dependencies are in <code>requirements.txt</code>; MFA 3.4.3 has its own environment created by <code>scripts/run_mfa.sh</code>. Configurations are <code>English/config.yaml</code> and <code>Telugu/config.yaml</code>. Set <code>HF_TOKEN</code> for gated Svarah access, after accepting its terms.</p>
+<pre>pip install -r requirements.txt
+python English/preprocess.py     # or Telugu/; --start and --stop choose steps
+python English/train.py          # rerunning resumes from the newest checkpoint
+python English/inference.py      # writes Results/English/
+python scripts/collect_deliverables.py
+python -m pytest -q tests</pre>
+<p>Colab notebooks in <code>notebooks/</code> run the same steps. Selection is seeded with 1234. Upstream commit: <code>d4e79eb</code>. {{CODE_COMMIT}}</p>
+<p>Attribution: FastSpeech2 by ming024 and HiFi-GAN by Kong et al., both MIT licensed; notices are kept with the derived code. The Indic TTS Database is from the Speech Technology Consortium, IIT Madras; its dataset card says use is subject to the Indic TTS license.</p>
+</body></html>
