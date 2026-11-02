@@ -12,10 +12,10 @@ code, pre { font: 10.5pt "Times New Roman", "Nirmala UI", serif; } pre { backgro
 img { max-width: 100%; }
 </style></head><body>
 <h1>FastSpeech 2 for English and Telugu: Technical Report</h1>
-<p style="text-align:center">{{STATUS_LINE}}</p>
+<p style="text-align:center">Saathviga<br>{{STATUS_LINE}}</p>
 
 <h2>1. Implementation approach</h2>
-<p>I started from the ming024 FastSpeech2 implementation (commit <code>d4e79eb</code>) and ported it into <code>src/</code>, leaving the upstream clone unmodified. I configured and trained two separate models, each with its own <code>config.yaml</code> and phone vocabulary.</p>
+<p>I started from the ming024 FastSpeech2 implementation and ported it into <code>src/</code>, leaving the upstream clone unmodified. I configured and trained two separate models, each with its own <code>config.yaml</code> and phone vocabulary.</p>
 <h3>Components used from the reference implementation</h3>
 <ul>
 <li>Encoder with 4 layers and decoder with 6 layers, 2 attention heads, 256 hidden units, convolutional feed-forward blocks with kernels 9 and 1, and dropout 0.2.</li>
@@ -153,7 +153,6 @@ img { max-width: 100%; }
 <tr><td>Share of validation pitch variance within clips</td><td>about 29%</td><td>about 85%</td></tr></table>
 <p>Telugu generalizes clearly better on these measures. This does not show that the model handles Telugu better than English as a language, because the datasets differ in the way that matters most: English is an unlabelled mix of voices and Telugu trains under one label. Text cannot predict which speaker a clip came from, which would limit English regardless of the model. The step counts also differ, though validation had flattened well before either stopped, so this is unlikely to explain the gap. I did not test either hypothesis with a controlled experiment.</p>
 <p><b>What I heard.</b> T1 and T4 came out very well. The two English problems I heard, in E3 and E4, trace to how the frontend read the text rather than to the acoustic model. The English long word in E1 and the numbers in E4 were understood despite the poor validation scores, so those scores do not by themselves show that the speech is unintelligible. Overall, some sentences sounded a bit robotic, and in some the last word was cut off. I did not record which clips these were, rate quality clip by clip, or compare the two voices in a controlled way. The waveforms do not end at full level: the last 50 ms of each clip is at 3% to 18% of its overall RMS level. So the cut-off is not a hard truncation of loud audio. One possible cause, which I did not test, is that I trimmed edge silence from the training clips, so the models learned to end abruptly, with low predicted energy on some final phones (3 in T1, 8 in T2b). The robotic quality may come partly from the universal HiFi-GAN vocoder not being fine-tuned, though I did not test this either.</p>
-<p><b>Code version.</b> The repository's commit history was consolidated before publication, so the commit named in section 8 is the published code, not a commit recorded during the training runs.</p>
 <h3>Limitations known before training</h3>
 <ul>
 <li><b>English speakers:</b> Svarah as loaded has no speaker column. Filename fields are not speaker IDs, and the 115 metadata profiles were not used as identities. All clips train as one group without speaker embeddings, so an averaged voice is expected. Telugu uses one label, which is not the same condition, and this limits any comparison.</li>
@@ -176,6 +175,6 @@ python English/train.py          # rerunning resumes from the newest checkpoint
 python English/inference.py      # writes Results/English/
 python scripts/collect_deliverables.py
 python -m pytest -q tests</pre>
-<p>Colab notebooks in <code>notebooks/</code> run the same steps. Selection is seeded with 1234. Upstream commit: <code>d4e79eb</code>. {{CODE_COMMIT}}</p>
+<p>Colab notebooks in <code>notebooks/</code> run the same steps. Selection is seeded with 1234.</p>
 <p>Attribution: FastSpeech2 by ming024 and HiFi-GAN by Kong et al., both MIT licensed; notices are kept with the derived code. The Indic TTS Database is from the Speech Technology Consortium, IIT Madras; its dataset card says use is subject to the Indic TTS license.</p>
 </body></html>

@@ -70,15 +70,14 @@ def main():
     for language in ("english", "telugu"):
         for sentence in sentences[language]:
             text = text.replace("{{" + sentence["id"] + "}}", html.escape(sentence["text"]).replace("  ", "&nbsp; "))
-    commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     text = text.replace("{{LOSS_PLOTS}}", loss_plots()).replace("{{VARIANCE_PLOTS}}", variance_plots())
-    text = text.replace("{{TRAINING_RECORD}}", training_record()).replace("{{CODE_COMMIT}}", "Code commit: <code>{}</code>.".format(commit))
+    text = text.replace("{{TRAINING_RECORD}}", training_record())
     pending = text.count('class="pending"')
     if pending:
         status = "<b>DRAFT, not for submission: {} items await trained models and listening.</b>".format(pending)
         out = ROOT / "output" / "Technical_Report_DRAFT.pdf"
     else:
-        status = "IIIT Hyderabad assignment submission."
+        status = "Assignment for Intern Position at LTRC, IIIT Hyderabad"
         out = ROOT / "Report" / "Technical_Report.pdf"
     text = text.replace("{{STATUS_LINE}}", status)
     built = ROOT / "output" / "report_built.html"
